@@ -1,22 +1,22 @@
 """Chat with the Ultra X2 humanoid robot via natural language + voice.
 
-ARCHITECTURE: Runs on your laptop, controls robot over network via ROS 2.
+ARCHITECTURE: Runs on your laptop with your microphone. Controls robot via ROS 2 when available.
 
-PRIMARY USAGE (laptop + robot on same WiFi):
+PRIMARY USAGE:
   $ poetry run python main.py
 
 This runs the voice agent on your laptop:
   - Listens to your laptop's microphone
   - Local Whisper for speech-to-text (no cloud, offline)
   - Claude LLM for analysis
-  - Connects to robot's ROS 2 services remotely
+  - Connects to robot's ROS 2 services (if ROS 2 installed)
   - Robot executes commands
 
-ALTERNATIVE MODES:
-  - DRY_RUN (text-only, no hardware): poetry run python main.py --dry-run
-    → type commands, Claude responds, hardware simulated
-  - No robot: poetry run python main.py
-    → uses laptop mic only, no ROS 2 connection needed
+MODES:
+  - Default (no ROS 2): uses laptop mic, LLM works, robot motion unavailable
+  - With ROS 2: laptop mic + robot control via ROS 2
+  - DRY_RUN: poetry run python main.py --dry-run
+    → simulated robot, no hardware needed
 
 Examples (speak these):
   "stand up and walk forward one meter"
@@ -38,7 +38,6 @@ from ultra_x2.config import Settings
 from ultra_x2.llm import RobotAgent, make_client, list_personalities
 from ultra_x2.diagnostics import diagnose
 from ultra_x2.speech import Transcriber, speak, Recorder
-from ultra_x2.speech.robot_microphone import RobotMicrophone
 from ultra_x2.exceptions import SpeechError
 
 logger = logging.getLogger(__name__)
@@ -124,17 +123,17 @@ def _run_text_loop(agent: RobotAgent, personalities: list[str]) -> int:
 
 
 def _run_voice_loop(agent: RobotAgent, settings: Settings, personalities: list[str]) -> int:
-    """Voice-based loop using the robot's microphone via ROS 2 (with fallback to local mic)."""
+    """Voice-based loop using your laptop's microphone."""
     transcriber = Transcriber(
         model_size=settings.stt_model,
         language=settings.stt_language,
         compute_type=settings.stt_compute_type,
     )
 
-    # Try robot's ROS 2 mic; fall back to laptop mic if ROS 2 unavailable on first use
-    print("\n🎤 Will attempt robot's microphone (ROS 2) or fall back to your laptop mic…")
-    mic = RobotMicrophone()
-    fallback_used = False
+    # Use laptop microphone for voice input
+    print("\n🎤 Using your laptop's microphone for voice input.")
+    print("   (Robot control via ROS 2 when available)")
+    mic = Recorder()
 
     print("Say 'quit' / 'exit' / 'stop' to leave the loop.\n")
 
@@ -144,16 +143,9 @@ def _run_voice_loop(agent: RobotAgent, settings: Settings, personalities: list[s
             try:
                 audio = mic.listen()
             except SpeechError as exc:
-                # First time ROS 2 fails, switch to local mic
-                if not fallback_used:
-                    logger.warning("ROS 2 not available, switching to local mic")
-                    print(f"⚠️  ROS 2 not available, using your laptop's microphone instead.\n")
-                    mic = Recorder()
-                    fallback_used = True
-                    print("🎤 listening…")
-                    audio = mic.listen()
-                else:
-                    raise
+                logger.error("Microphone error: %s", exc)
+                print(f"❌ {exc}\n")
+                continue
 
             text = transcriber.transcribe(audio)
             if not text:
