@@ -19,3 +19,11 @@ class UnsafeActionError(RobotError):
     Examples: a joint angle outside its limit, walking while not standing,
     or a command issued before the robot is connected.
     """
+
+
+class SpeechError(RobotError):
+    """Raised when audio capture or speech-to-text fails.
+
+    Examples: no microphone available, an optional dependency (faster-whisper /
+    sounddevice) not installed, or a transcription backend error.
+    """

@@ -19,9 +19,16 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.6",
 ]
+# Voice input (local speech-to-text). Install with: poetry install --extras voice
+voice = [
+    "faster-whisper>=1.0",
+    "sounddevice>=0.4",
+    "numpy>=1.24",
+]
 
 [project.scripts]
 ultra-x2 = "main:main"
+ultra-x2-voice = "ultra_x2.voice:main"
 
 
 [build-system]
