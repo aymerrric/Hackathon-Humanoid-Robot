@@ -1,0 +1,35 @@
+[project]
+name = "hackathon"
+version = "0.1.0"
+description = "Wrapper around the Ultra X2 humanoid SDK with a Claude-powered LLM control layer."
+authors = [
+    {name = "Your GitHub Username",email = "aymeric-sabrie@orange.fr"}
+]
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "anthropic>=0.40.0",
+    "python-dotenv>=1.0.0",
+    # TODO(vendor): add the Ultra X2 SDK package here, e.g.
+    # "ultra-x2-sdk>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+ultra-x2 = "main:main"
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [{ include = "ultra_x2" }]
+
+[tool.ruff]
+line-length = 90
