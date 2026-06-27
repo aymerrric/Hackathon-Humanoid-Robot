@@ -26,9 +26,9 @@ class Recorder:
     def __init__(
         self,
         sample_rate: int = SAMPLE_RATE,
-        silence_threshold: float = 0.015,  # RMS below this counts as silence
-        silence_duration: float = 1.2,     # stop after this much trailing silence
-        max_duration: float = 20.0,        # hard cap on one utterance
+        silence_threshold: float = 0.025,  # RMS below this counts as silence
+        silence_duration: float = 0.6,     # stop after this much trailing silence
+        max_duration: float = 15.0,        # hard cap on one utterance
         block_duration: float = 0.05,      # audio callback granularity (s)
     ) -> None:
         self._sr = sample_rate

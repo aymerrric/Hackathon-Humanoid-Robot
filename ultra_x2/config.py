@@ -45,7 +45,8 @@ def load_settings() -> Settings:
         robot_host=os.getenv("ULTRA_X2_HOST", "127.0.0.1"),
         robot_port=int(os.getenv("ULTRA_X2_PORT", "8080")),
         robot_api_key=os.getenv("ULTRA_X2_API_KEY"),
-        dry_run=_as_bool(os.getenv("DRY_RUN"), default=True),
+        # Default to live hardware unless explicitly enabled via env/CLI.
+        dry_run=_as_bool(os.getenv("DRY_RUN"), default=False),
         require_confirmation=_as_bool(os.getenv("REQUIRE_CONFIRMATION"), default=True),
         stt_model=os.getenv("STT_MODEL", "base"),
         stt_language=os.getenv("STT_LANGUAGE") or None,

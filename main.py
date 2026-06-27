@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import logging
 import sys
+import os
+import argparse
 
 from ultra_x2 import UltraX2Robot, load_settings
 from ultra_x2.llm import RobotAgent, make_client
@@ -23,6 +25,18 @@ def cli_confirm(description: str) -> bool:
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+
+    # CLI: allow opting into dry-run mode. By default the app runs against
+    # live hardware unless --dry-run is provided.
+    parser = argparse.ArgumentParser(description="Ultra X2 interactive agent")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Run in dry-run mode (simulate hardware).")
+    args = parser.parse_args()
+
+    # If requested via CLI, force the DRY_RUN env var so load_settings() picks it up.
+    if args.dry_run:
+        os.environ["DRY_RUN"] = "true"
+
     settings = load_settings()
 
     if settings.anthropic_api_key is None:
@@ -41,7 +55,7 @@ def main() -> int:
             except (EOFError, KeyboardInterrupt):
                 print()
                 break
-            if user.lower() in {"quit", "exit"}:
+            if user.lower() in {"quit", "exit", "stop"}:
                 break
             if not user:
                 continue

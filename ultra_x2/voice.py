@@ -17,6 +17,9 @@ from __future__ import annotations
 
 import logging
 import sys
+import os
+import argparse
+import re
 
 from ultra_x2 import UltraX2Robot, load_settings
 from ultra_x2.exceptions import SpeechError
@@ -26,6 +29,14 @@ from ultra_x2.speech import Recorder, Transcriber, speak
 logger = logging.getLogger(__name__)
 
 EXIT_PHRASES = {"quit", "exit", "stop listening", "goodbye", "bye"}
+STOP_INTENT_PATTERNS = (
+    r"\bstop\b",
+    r"\bstop listening\b",
+    r"\bquit\b",
+    r"\bexit\b",
+    r"\bbye\b",
+    r"\bgoodbye\b",
+)
 
 
 def cli_confirm(description: str) -> bool:
@@ -33,8 +44,23 @@ def cli_confirm(description: str) -> bool:
     return answer in {"y", "yes"}
 
 
+def has_stop_intent(text: str) -> bool:
+    normalized = text.lower().strip()
+    return any(re.search(pattern, normalized) for pattern in STOP_INTENT_PATTERNS)
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+
+    parser = argparse.ArgumentParser(description="Ultra X2 voice front-end")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Run in dry-run mode (simulate hardware).")
+    parser.add_argument("wav", nargs="?", help="Optional WAV file to transcribe and exit")
+    args = parser.parse_args()
+
+    if args.dry_run:
+        os.environ["DRY_RUN"] = "true"
+
     settings = load_settings()
 
     if settings.anthropic_api_key is None:
@@ -48,7 +74,7 @@ def main() -> int:
     )
 
     # Optional one-shot file mode: `ultra-x2-voice clip.wav`
-    wav_path = sys.argv[1] if len(sys.argv) > 1 else None
+    wav_path = args.wav
 
     client = make_client(settings)
     with UltraX2Robot(settings) as robot:
@@ -67,6 +93,10 @@ def _handle(transcriber, agent, settings, audio_or_path) -> str | None:
         print("…(didn't catch that)")
         return None
     print(f"you (heard)> {text}")
+
+    if has_stop_intent(text):
+        print("Stopping on user request.")
+        return text
 
     reply = agent.send(text)
     print(f"x2 > {reply}\n")
@@ -102,7 +132,7 @@ def _run_loop(transcriber, agent, settings) -> int:
         except (EOFError, KeyboardInterrupt):
             print()
             break
-        if text and text.lower().strip(".!? ") in EXIT_PHRASES:
+        if text and has_stop_intent(text):
             break
     return 0
 

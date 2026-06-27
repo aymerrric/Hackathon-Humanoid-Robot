@@ -12,6 +12,8 @@ dependencies = [
     "python-dotenv>=1.0.0",
     # TODO(vendor): add the Ultra X2 SDK package here, e.g.
     # "ultra-x2-sdk>=1.0.0",
+    "numpy (>=2.5.0,<3.0.0)",
+    "sounddevice (>=0.5.5,<0.6.0)"
 ]
 
 [project.optional-dependencies]
