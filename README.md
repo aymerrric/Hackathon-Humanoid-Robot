@@ -61,3 +61,19 @@ poetry run ultra-x2           # runs in DRY_RUN mode by default — no real moti
 Every method in `ultra_x2/robot.py` has a `# TODO(vendor)` marker showing where the
 real Ultra X2 SDK call goes. Replace the simulated bodies with the actual SDK and
 delete the `DRY_RUN` short-circuits you no longer need.
+
+## SSH into the robot
+
+```bash
+./scripts/ssh_robot.sh
+```
+
+Inside the robot shell, source the ROS environment before checking packages or LiDAR:
+
+```bash
+source /opt/ros/humble/setup.bash
+source ~/Botifull/SLAM_stack/scripts/setup_env.sh
+ros2 pkg list | grep -Ei 'lidar|slam|navigation|pointcloud|pcl'
+ros2 topic list | grep -i lidar
+ros2 topic info /aima/hal/sensor/lidar_chest_front/lidar_pointcloud -v
+```

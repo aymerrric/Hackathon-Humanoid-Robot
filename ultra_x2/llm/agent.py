@@ -16,6 +16,7 @@ import anthropic
 from ultra_x2.config import Settings
 from ultra_x2.exceptions import RobotError
 from ultra_x2.llm import tools as tools_mod
+from ultra_x2.llm.personalities import get_personality
 from ultra_x2.robot import UltraX2Robot
 
 logger = logging.getLogger(__name__)
@@ -23,13 +24,26 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT = """\
 You control an Ultra X2 humanoid robot through the provided tools.
 
-- Before any motion, check the robot's state with get_state if you're unsure.
-- The robot must be standing before it can walk; set_posture("stand") first.
-- Keep movements small and deliberate. Prefer one action at a time.
-- If a tool reports an error, do not retry blindly — read the error, adjust, and
-  explain to the user what happened.
-- If asked to do something unsafe or out of range, refuse and say why.
-- Use the stop tool immediately if the user asks you to stop.
+⚠️ SAFETY FIRST — these are CRITICAL:
+- ALWAYS check the robot's state with get_state before ANY motion.
+- NEVER assume the robot is standing. ALWAYS verify with get_state first.
+- NEVER command motion without confirming state (battery, posture, etc.).
+- REFUSE any command that seems risky or could cause a fall.
+- If the user says "stop", IMMEDIATELY use the stop tool.
+- Use the stop tool if anything seems wrong.
+
+Motion sequence (ALWAYS follow this):
+1. Check state with get_state
+2. If not standing, set_posture("stand") first
+3. Wait for confirmation the posture change is done
+4. Then do the motion (walk, raise arm, etc.)
+5. Use small, deliberate movements only
+
+If a tool reports an error, STOP and explain to the user what happened.
+Do NOT retry failed commands.
+
+When in doubt, err on the side of safety. Ask the user for confirmation
+for any risky action.
 """
 
 # A confirmer takes a human-readable description of a physical action and returns
@@ -44,12 +58,16 @@ class RobotAgent:
         robot: UltraX2Robot,
         settings: Settings,
         confirmer: Confirmer | None = None,
+        personality: str | None = None,
     ) -> None:
         self._client = client
         self._robot = robot
         self._settings = settings
         self._confirmer = confirmer
         self._messages: list[dict[str, Any]] = []  # conversation history
+        # Use provided personality or fall back to settings
+        self._personality = get_personality(personality or settings.personality)
+        self._system_prompt = self._build_system_prompt()
 
     def send(self, user_message: str, max_steps: int = 8) -> str:
         """Send a user instruction and run the tool loop until Claude is done.
@@ -63,7 +81,7 @@ class RobotAgent:
                 model=self._settings.llm_model,
                 max_tokens=4096,
                 thinking={"type": "adaptive"},
-                system=SYSTEM_PROMPT,
+                system=self._system_prompt,
                 tools=tools_mod.tool_definitions(),
                 messages=self._messages,
             )
@@ -120,3 +138,15 @@ class RobotAgent:
     @staticmethod
     def _final_text(content: list[Any]) -> str:
         return "".join(b.text for b in content if b.type == "text").strip()
+
+    def _build_system_prompt(self) -> str:
+        """Build the system prompt with personality injected."""
+        base = SYSTEM_PROMPT.strip()
+        style = self._personality.style_guide.strip()
+        return f"{base}\n\n## Personality: {self._personality.name}\n\n{style}"
+
+    def set_personality(self, personality_name: str) -> None:
+        """Switch to a different personality mid-conversation."""
+        self._personality = get_personality(personality_name)
+        self._system_prompt = self._build_system_prompt()
+        logger.info(f"Personality changed to: {self._personality.name}")
